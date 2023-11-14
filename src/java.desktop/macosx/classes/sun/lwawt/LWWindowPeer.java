@@ -508,6 +508,7 @@ public class LWWindowPeer
 
     @Override
     public void updateWindow() {
+        getLWGC().flush(this);
     }
 
     public final boolean isTextured() {
