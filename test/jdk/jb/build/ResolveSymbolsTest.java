@@ -53,6 +53,8 @@ import java.util.stream.Stream;
  *          - Find the library whose symbols are missing. This utilities might help:
  *            $ ldconfig -p | grep libNameImLookingFor
  *            $ ldd nameOfJbrLibrary
+ *            $ yum whatprovides *libXcursor*
+ *            $ rpm -q --whatprovides libPath
  *
  *          - Dump ELF:
  *            $ echo Library: $lib_path" >> $lib_name.txt
@@ -90,12 +92,13 @@ public class ResolveSymbolsTest {
      * Num   - The symbol number
      * Value - The address of the Symbol
      * Size  - The size of the symbol
-     * Type  - symbol type: Func = Function, Object, File (source file name), Section = memory section, Notype = untyped
-     *        absolute symbol or undefined
-     * Bind  - GLOBAL binding means the symbol is visible outside the file. LOCAL binding is visible only in the file.
-     *         WEAK is like global, the symbol can be overridden.
+     * Type  - symbol type: Func = Function, Object, File (source file name), Section = memory section,
+     *         Notype = untyped absolute symbol or undefined
+     * Bind  - GLOBAL binding means the symbol is visible outside the file. LOCAL binding is visible
+     *         only in the file. WEAK is like global, the symbol can be overridden.
      * Vis   - Symbols can be default, protected, hidden or internal.
-     * Ndx   - The section number the symbol is in. ABS means absolute: not adjusted to any section address's relocation
+     * Ndx   - The section number the symbol is in. ABS means absolute: not adjusted to any section
+     *         address's relocation. UND means undefined. The symbol is not defined in this file.
      * Name  - symbol name
      */
     private static List<ElfSymbol> parseElf(String readElfData) {
@@ -116,8 +119,8 @@ public class ResolveSymbolsTest {
         final int bindCol = tableHeaders.indexOf("Bind");
         final int ndxCol = tableHeaders.indexOf("Ndx");
         final int lastCol = Collections.max(Arrays.asList(nameCol, typeCol, bindCol, ndxCol));
-        if (typeCol == -1 || bindCol == -1 || ndxCol == -1) {
-            throw new RuntimeException("readelf: the dynsym must have Type, Bind and Ndx columns, but it has " + tableHeaders);
+        if (nameCol || typeCol == -1 || bindCol == -1 || ndxCol == -1) {
+            throw new RuntimeException("readelf: the dynsym must have Name, Type, Bind and Ndx columns, but it has " + tableHeaders);
         }
         ++i;
         if (i >= lines.length) {
@@ -132,7 +135,7 @@ public class ResolveSymbolsTest {
 
             String[] row = lines[i].split("\\s+");
             if (lastCol >= row.length) {
-                // that probably means that the name attribute is empty
+                // that means that the name attribute is empty
                 continue;
             }
             ElfSymbol symbol = new ElfSymbol();
@@ -255,6 +258,7 @@ public class ResolveSymbolsTest {
             }
         }
 
+        // ========================= Make error message =========================
         if (!errors.isEmpty()) {
             throw new RuntimeException("Failed to resolve symbols in " +
                     errors.size() + " files:\n" + String.join("\n\n", errors) + "\n");
